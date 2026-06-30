@@ -1,0 +1,63 @@
+@startuml 用例图_总览
+left to right direction
+skinparam packageStyle rectangle
+
+actor "游客" as Guest
+actor "求职者\n(普通用户)" as JobSeeker
+actor "企业HR\n(专业用户)" as HR
+actor "系统管理员" as Admin
+
+rectangle "招聘信息实时数据分析系统" {
+
+  package "数据采集" {
+    usecase "定时采集数据" as UC_Collect
+    usecase "监控采集状态" as UC_Monitor
+  }
+
+  package "数据分析" {
+    usecase "浏览市场概览" as UC_Overview
+    usecase "搜索岗位分析" as UC_Search
+    usecase "多维度筛选对比" as UC_Filter
+    usecase "查看技能需求" as UC_Skill
+  }
+
+  package "用户功能" {
+    usecase "注册登录" as UC_Login
+    usecase "导出分析报告" as UC_Export
+    usecase "收藏与订阅" as UC_Favorite
+  }
+
+  package "系统管理" {
+    usecase "管理用户权限" as UC_UserMgmt
+    usecase "手动触发采集" as UC_Trigger
+  }
+}
+
+Guest --> UC_Overview
+Guest --> UC_Login
+
+JobSeeker --> UC_Overview
+JobSeeker --> UC_Search
+JobSeeker --> UC_Filter
+JobSeeker --> UC_Skill
+JobSeeker --> UC_Favorite
+
+HR --> UC_Overview
+HR --> UC_Search
+HR --> UC_Filter
+HR --> UC_Skill
+HR --> UC_Export
+
+Admin --> UC_Monitor
+Admin --> UC_Trigger
+Admin --> UC_UserMgmt
+
+JobSeeker -up-|> Guest
+HR -up-|> Guest
+Admin -up-|> Guest
+
+UC_Collect ..> UC_Monitor : <<include>>
+UC_Search ..> UC_Filter : <<extend>>
+UC_Export ..> UC_Filter : <<extend>>
+
+@enduml

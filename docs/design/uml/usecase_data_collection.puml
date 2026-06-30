@@ -1,0 +1,31 @@
+@startuml 用例图_数据采集模块
+left to right direction
+
+actor "系统管理员" as Admin
+actor "定时调度器" as Scheduler
+
+rectangle "数据采集模块 (F001)" {
+  usecase "配置爬虫规则" as UC_Config
+  usecase "执行多平台爬取" as UC_Crawl
+  usecase "API数据接入" as UC_API
+  usecase "管理定时任务" as UC_Schedule
+  usecase "查看采集日志" as UC_Log
+  usecase "处理采集异常" as UC_Error
+  usecase "管理IP代理池" as UC_Proxy
+}
+
+Admin --> UC_Config
+Admin --> UC_Schedule
+Admin --> UC_Log
+Admin --> UC_Error
+Admin --> UC_Proxy
+
+Scheduler --> UC_Crawl
+Scheduler --> UC_API
+
+UC_Crawl ..> UC_Proxy : <<include>>
+UC_Crawl ..> UC_Error : <<extend>>
+UC_API ..> UC_Error : <<extend>>
+UC_Schedule ..> UC_Crawl : <<include>>
+
+@enduml

@@ -1,0 +1,37 @@
+@startuml 用例图_数据分析模块
+left to right direction
+
+actor "求职者" as JobSeeker
+actor "企业HR" as HR
+
+rectangle "数据分析模块 (F004)" {
+  usecase "查看岗位热度排行" as UC_Hot
+  usecase "查看薪资分布" as UC_Salary
+  usecase "对比城市薪资" as UC_CityCompare
+  usecase "查看技能需求词云" as UC_WordCloud
+  usecase "查看地域岗位分布" as UC_Geo
+  usecase "查看经验学历要求分析" as UC_ExpEdu
+  usecase "自定义筛选条件" as UC_Filter
+}
+
+JobSeeker --> UC_Hot
+JobSeeker --> UC_Salary
+JobSeeker --> UC_WordCloud
+JobSeeker --> UC_Geo
+JobSeeker --> UC_Filter
+
+HR --> UC_Hot
+HR --> UC_Salary
+HR --> UC_CityCompare
+HR --> UC_WordCloud
+HR --> UC_Geo
+HR --> UC_ExpEdu
+HR --> UC_Filter
+
+UC_Hot ..> UC_Filter : <<extend>>
+UC_Salary ..> UC_Filter : <<extend>>
+UC_Geo ..> UC_Filter : <<extend>>
+UC_CityCompare ..> UC_Salary : <<extend>>
+UC_WordCloud ..> UC_Filter : <<extend>>
+
+@enduml
