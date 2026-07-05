@@ -53,3 +53,8 @@ backups/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Node / 前端
+node_modules/
+frontend/dist/
+.npm/
