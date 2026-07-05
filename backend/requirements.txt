@@ -29,6 +29,17 @@ pyecharts>=2.0
 pytest>=8.0
 pytest-cov>=4.1
 
+# 认证
+bcrypt>=4.1
+PyJWT>=2.8
+werkzeug>=3.0
+
+# 生产部署
+gunicorn>=21.2
+
+# 监控
+prometheus-client>=0.19
+
 # 工具
 python-dotenv>=1.0
 loguru>=0.7

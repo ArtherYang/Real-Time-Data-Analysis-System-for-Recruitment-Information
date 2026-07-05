@@ -1,0 +1,306 @@
+# ============================================================
+# 招聘信息实时数据分析系统 (RDAS) — Docker Compose 编排
+# ============================================================
+# 使用方式：
+#   1. cp .env.example .env 并修改配置
+#   2. docker-compose up -d
+#   3. 访问 http://localhost 查看前端
+#   4. 访问 http://localhost:3000 查看 Grafana
+#   5. 访问 http://localhost:9090 查看 Prometheus
+#
+# 服务一览：
+#   nginx          — 统一入口（前端静态文件 + API 反向代理）
+#   frontend       — Vue.js 前端构建产物（内部，不暴露端口）
+#   backend        — Flask API（Gunicorn）
+#   celery-worker  — 异步任务处理（爬虫、数据处理）
+#   celery-beat    — 定时任务调度
+#   mysql          — MySQL 8.0（业务数据）
+#   redis          — Redis 7（缓存 + Celery 消息代理）
+#   prometheus     — 指标采集
+#   grafana        — 监控面板
+#   loki           — 日志聚合
+#   promtail       — 日志采集代理
+#
+# AI生成，待人工审查。
+# ============================================================
+
+# ============================================================
+# 网络定义
+# ============================================================
+networks:
+  frontend:
+    name: rdas-frontend
+  backend:
+    name: rdas-backend
+
+# ============================================================
+# 数据卷定义
+# ============================================================
+volumes:
+  mysql_data:
+  redis_data:
+  grafana_data:
+  loki_data:
+
+# ============================================================
+# 服务定义
+# ============================================================
+
+services:
+
+  # ======================== 数据库 ========================
+  mysql:
+    image: docker.m.daocloud.io/mysql:8.0
+    container_name: rdas-mysql
+    restart: unless-stopped
+    networks:
+      - backend
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rdas_dev_2026}
+      MYSQL_DATABASE: ${DB_NAME:-rdas}
+      TZ: Asia/Shanghai
+    ports:
+      - "${DB_EXTERNAL_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-rdas_dev_2026}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ======================== Redis ========================
+  redis:
+    image: docker.m.daocloud.io/redis:7-alpine
+    container_name: rdas-redis
+    restart: unless-stopped
+    networks:
+      - backend
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ======================== Flask 后端 ========================
+  backend:
+    build:
+      context: ./backend
+    container_name: rdas-backend
+    restart: unless-stopped
+    networks:
+      - backend
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    environment:
+      FLASK_ENV: ${ENV:-production}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-rdas_dev_2026}
+      DB_NAME: ${DB_NAME:-rdas}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret}
+      ENV: ${ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ======================== Celery Worker ========================
+  celery-worker:
+    build:
+      context: ./backend
+    container_name: rdas-celery-worker
+    restart: unless-stopped
+    networks:
+      - backend
+    environment:
+      FLASK_ENV: ${ENV:-production}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-rdas_dev_2026}
+      DB_NAME: ${DB_NAME:-rdas}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      ENV: ${ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    command: >
+      celery -A app.celery_app worker
+      --loglevel=${LOG_LEVEL:-info}
+      --concurrency=2
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ======================== Celery Beat（定时调度） ========================
+  celery-beat:
+    build:
+      context: ./backend
+    container_name: rdas-celery-beat
+    restart: unless-stopped
+    networks:
+      - backend
+    environment:
+      FLASK_ENV: ${ENV:-production}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-rdas_dev_2026}
+      DB_NAME: ${DB_NAME:-rdas}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      ENV: ${ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    command: >
+      celery -A app.celery_app beat
+      --loglevel=${LOG_LEVEL:-info}
+    # Celery Beat 是调度器，不响应 inspect ping，不做健康检查
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ======================== 前端（构建产物，内部） ========================
+  frontend:
+    build:
+      context: ./frontend
+    container_name: rdas-frontend
+    restart: unless-stopped
+    networks:
+      - frontend
+    # 不暴露端口 — 由 Nginx 作为统一入口
+
+  # ======================== Nginx 统一入口 ========================
+  nginx:
+    build:
+      context: ./nginx
+    container_name: rdas-nginx
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # ======================== Prometheus 指标采集 ========================
+  prometheus:
+    image: docker.m.daocloud.io/prom/prometheus:v2.53.0
+    container_name: rdas-prometheus
+    restart: unless-stopped
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # ======================== Grafana 监控面板 ========================
+  grafana:
+    image: docker.m.daocloud.io/grafana/grafana:11.0.0
+    container_name: rdas-grafana
+    restart: unless-stopped
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # ======================== Loki 日志聚合 ========================
+  loki:
+    image: docker.m.daocloud.io/grafana/loki:3.0.0
+    container_name: rdas-loki
+    restart: unless-stopped
+    networks:
+      - backend
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # ======================== Promtail 日志采集 ========================
+  promtail:
+    image: docker.m.daocloud.io/grafana/promtail:3.0.0
+    container_name: rdas-promtail
+    restart: unless-stopped
+    networks:
+      - backend
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki

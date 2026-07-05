@@ -1,0 +1,17 @@
+# 构建时忽略的文件和目录
+__pycache__/
+*.pyc
+*.pyo
+tests/
+.pytest_cache/
+*.db
+*.sqlite
+.env
+.git
+.gitignore
+*.md
+venv/
+.venv/
+env/
+logs/
+*.log

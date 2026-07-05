@@ -1,0 +1,47 @@
+# ============================================================
+# 招聘信息实时数据分析系统 (RDAS) — Prometheus 配置
+# ============================================================
+# 抓取指标来源：backend metrics、nginx（未来扩展）
+#
+# AI生成，待人工审查。
+# ============================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: rdas
+    environment: ${ENV:-production}
+
+# 加载告警规则
+rule_files:
+  - /etc/prometheus/alert-rules.yml
+
+# 抓取目标
+scrape_configs:
+
+  # ---- RDAS Backend ----
+  - job_name: rdas-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "backend:5000"
+        labels:
+          service: "backend"
+
+  # ---- RDAS Nginx ----
+  - job_name: rdas-nginx
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "nginx:80"
+        labels:
+          service: "nginx"
+
+  # ---- Prometheus 自身 ----
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - "localhost:9090"
+        labels:
+          service: "prometheus"

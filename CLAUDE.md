@@ -55,6 +55,10 @@
 | 2026-06-30 | 数据采集为第一优先级模块 | 数据是分析的前提 | 杨昱晨 |
 | 2026-06-30 | 采用Python后端 + Web前端方案 | 生态丰富，学习成本可控 | 杨昱晨 |
 | 2026-06-30 | JobRawData 字段从11个扩展到19个 | 调研三大平台实际字段后，补齐了分类维度（industry/job_category）、时间维度（published_at）、去重标识（platform_job_id）、公司信息（company_size/company_type/welfare）等9个关键字段 | 杨昱晨 |
+| 2026-07-02 | P2 方案设计文档完成（ADR/架构/DB/API） | 补齐正式设计文档，共4份，约2万字 | 杨昱晨（AI 生成初稿） |
+| 2026-07-03 | M5b 部署运维配置完成 | 容器化、CI/CD、监控告警、日志收集、运维文档全部就绪 | 杨昱晨（AI 生成初稿） |
+| 2026-07-03 | MT 测试与质量保障完成 | 新增测试 127 例（总计 395），覆盖单元/集成/安全/性能，编写测试报告 | 杨昱晨（AI 生成初稿） |
+| 2026-07-04 | DOC 结项文档完成 | 结项报告 + 用户操作手册，共 2 份 | 杨昱晨（AI 生成初稿） |
 
 ---
 
@@ -72,13 +76,25 @@
 
 ## 五、当前开发阶段
 
-**阶段**：项目初始化
-**本周目标**：
+**阶段**：M5b 部署运维与上线 ✅
+**本周目标（6.28-7.04 需求分析与系统设计）**：
 1. ✅ 项目立项报告
 2. ✅ 工程目录搭建
-3. ⬜ 需求分析文档（待生成）
-4. ⬜ 系统设计文档（待生成）
-5. ⬜ 爬虫模块原型（待开发）
+3. ✅ 需求分析文档（requirements_spec.md v1.0）
+4. ✅ 系统设计文档（ADR / 架构 / DB / API 全部完成）
+5. ✅ 爬虫模块原型（boss.py + job51.py + base.py + anti_crawl.py）
+6. ✅ 后端 Flask API 核心模块，测试全通过
+7. ✅ M5b DevOps 基础设施（Docker/Nginx/CICD/Monitoring/Logging/Alerting）
+
+**M5b 交付物状态**：
+- ✅ Docker 镜像构建成功（backend + frontend Dockerfile）
+- ✅ 服务编排部署就绪（docker-compose.yml，10 个服务）
+- ✅ CI/CD 流水线就绪（ci.yml + cd-nightly.yml）
+- ✅ 监控面板可访问（Grafana 预配置 2 个 Dashboard）
+- ✅ 告警规则配置生效（7 条规则 + Alertmanager 通知）
+- ✅ 日志收集系统就绪（Loki + Promtail）
+- ✅ 灰度发布/回滚方案文档（release-strategy.md）
+- ✅ 运维手册完成（ops-manual.md + deploy-guide.md）
 
 ---
 

@@ -46,6 +46,9 @@ backend/data/temp/
 # Docker
 .docker/
 
+# 备份（不提交到 Git）
+backups/
+
 # 测试
 .pytest_cache/
 .coverage

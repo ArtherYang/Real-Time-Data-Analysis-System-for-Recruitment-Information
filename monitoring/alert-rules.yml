@@ -1,0 +1,121 @@
+# ============================================================
+# 招聘信息实时数据分析系统 (RDAS) — Prometheus 告警规则
+# ============================================================
+# 涵盖：服务宕机、接口错误率、延迟、采集失败、资源使用
+#
+# AI生成，待人工审查。
+# ============================================================
+
+groups:
+
+  # ---- 服务宕机告警 ----
+  - name: service_down
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "服务 {{ $labels.service }} 已宕机"
+          description: "服务 {{ $labels.service }} 在实例 {{ $labels.instance }} 上已超过 1 分钟不可达。请立即检查！"
+
+  # ---- 接口错误率告警 ----
+  - name: api_errors
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(rdas_http_errors_total[5m])) by (endpoint)
+          /
+          sum(rate(rdas_http_requests_total[5m])) by (endpoint)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: quality
+        annotations:
+          summary: "接口 {{ $labels.endpoint }} 错误率超过 5%"
+          description: "接口 {{ $labels.endpoint }} 在过去 5 分钟内错误率为 {{ $value | humanizePercentage }}，请检查日志排查原因。"
+
+      - alert: ElevatedErrorRate
+        expr: |
+          sum(rate(rdas_http_errors_total[5m])) by (endpoint)
+          /
+          sum(rate(rdas_http_requests_total[5m])) by (endpoint)
+          > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: quality
+        annotations:
+          summary: "接口 {{ $labels.endpoint }} 错误率超过 1%"
+          description: "接口 {{ $labels.endpoint }} 在过去 10 分钟内错误率为 {{ $value | humanizePercentage }}，需关注。"
+
+  # ---- 接口延迟告警 ----
+  - name: api_latency
+    rules:
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(rdas_http_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "接口 {{ $labels.endpoint }} P99 延迟超过 1 秒"
+          description: "接口 {{ $labels.endpoint }} 的 P99 延迟为 {{ $value }}s，超过 1s 阈值，可能存在性能瓶颈。"
+
+  # ---- 采集任务失败告警 ----
+  - name: crawl_tasks
+    rules:
+      - alert: CrawlTaskHighFailureRate
+        expr: |
+          sum(rate(rdas_celery_tasks_total{status="failure"}[10m])) by (task_name)
+          /
+          (
+            sum(rate(rdas_celery_tasks_total{status="success"}[10m])) by (task_name)
+            +
+            sum(rate(rdas_celery_tasks_total{status="failure"}[10m])) by (task_name)
+          )
+          > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          category: data_pipeline
+        annotations:
+          summary: "采集任务 {{ $labels.task_name }} 失败率超过 10%"
+          description: "采集任务 {{ $labels.task_name }} 在过去 10 分钟内的失败率为 {{ $value | humanizePercentage }}，请检查数据源和采集配置。"
+
+  # ---- 数据采集延迟告警 ----
+  - name: data_delay
+    rules:
+      - alert: DataDelay
+        expr: |
+          time() - rdas_crawl_last_success_timestamp > 7200
+        for: 5m
+        labels:
+          severity: warning
+          category: data_pipeline
+        annotations:
+          summary: "数据采集延迟超过 2 小时"
+          description: "最近一次成功采集在 {{ $value | humanizeDuration }} 之前，数据可能已过期。"
+
+  # ---- 异常流量告警 ----
+  - name: traffic_anomaly
+    rules:
+      - alert: TrafficSurge
+        expr: |
+          sum(rate(rdas_http_requests_total[5m]))
+          >
+          3 * sum(rate(rdas_http_requests_total[5m] offset 1h))
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "流量异常飙升"
+          description: "当前 QPS 为一小时前的 {{ $value | humanize }} 倍，可能存在异常流量或攻击。"
+

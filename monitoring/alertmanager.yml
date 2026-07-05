@@ -1,0 +1,122 @@
+# ============================================================
+# 招聘信息实时数据分析系统 (RDAS) — Alertmanager 通知配置
+# ============================================================
+# 通知渠道：邮件 (SMTP) + Webhook（企业微信/钉钉）
+# 分组策略：按服务名 + 严重级别分组
+#
+# 使用前请修改：
+#   - smtp_smarthost / smtp_from / smtp_auth_username / smtp_auth_password
+#   - webhook_configs 中的企业微信/钉钉 webhook URL
+#
+# AI生成，待人工审查。
+# ============================================================
+
+global:
+  smtp_smarthost: 'smtp.qq.com:587'
+  smtp_from: 'alert@example.com'
+  smtp_auth_username: 'alert@example.com'
+  smtp_auth_password: 'your-smtp-password'
+  smtp_require_tls: true
+
+# 通知路由树
+route:
+  group_by: ['alertname', 'service', 'severity']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  # 默认接收者
+  receiver: 'default-email'
+
+  routes:
+    # critical 级别 → 邮件 + IM（即时通知）
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      repeat_interval: 5m
+
+    # warning 级别 → 仅邮件
+    - match:
+        severity: warning
+      receiver: 'default-email'
+
+    # 数据管道类告警 → 单独通知
+    - match:
+        category: data_pipeline
+      receiver: 'data-pipeline-alerts'
+
+# ======================== 告警接收者定义 ========================
+
+receivers:
+
+  # 默认邮件通知
+  - name: 'default-email'
+    email_configs:
+      - to: 'admin@example.com'
+        headers:
+          Subject: '[RDAS Alarm] {{ .GroupLabels.alertname }} - {{ .Status }}'
+        html: |
+          <h2>RDAS 告警通知</h2>
+          <p><strong>告警名称:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>严重级别:</strong> {{ .GroupLabels.severity }}</p>
+          <p><strong>状态:</strong> {{ .Status | toUpper }}</p>
+          <hr>
+          <table border="1" cellpadding="5">
+            <tr><th>告警</th><th>详情</th><th>开始时间</th></tr>
+            {{ range .Alerts }}
+            <tr>
+              <td>{{ .Annotations.summary }}</td>
+              <td>{{ .Annotations.description }}</td>
+              <td>{{ .StartsAt }}</td>
+            </tr>
+            {{ end }}
+          </table>
+
+  # 严重告警 → 邮件 + Webhook（企业微信/钉钉）
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'admin@example.com,oncall@example.com'
+        headers:
+          Subject: '[RDAS CRITICAL] {{ .GroupLabels.alertname }} - 需要立即处理！'
+        html: |
+          <h2 style="color:red">RDAS 严重告警 - 需立即处理！</h2>
+          <p><strong>告警名称:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>服务:</strong> {{ .GroupLabels.service }}</p>
+          <hr>
+          {{ range .Alerts }}
+          <p><strong>摘要:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>详情:</strong> {{ .Annotations.description }}</p>
+          <p><strong>开始时间:</strong> {{ .StartsAt }}</p>
+          <hr>
+          {{ end }}
+    webhook_configs:
+      # 企业微信机器人 Webhook（替换为实际 URL）
+      - url: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+        # 消息模板（企业微信 Markdown 格式）
+        max_alerts: 5
+
+  # 数据管道告警
+  - name: 'data-pipeline-alerts'
+    email_configs:
+      - to: 'data-team@example.com'
+        headers:
+          Subject: '[RDAS Data Pipeline] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>RDAS 数据管道告警</h2>
+          <p><strong>告警:</strong> {{ .GroupLabels.alertname }}</p>
+          {{ range .Alerts }}
+          <p><strong>详情:</strong> {{ .Annotations.description }}</p>
+          {{ end }}
+
+# ======================== 抑制规则 ========================
+
+inhibit_rules:
+  # 如果某服务已宕机，抑制该服务的其他告警
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '.*'
+    equal: ['service']

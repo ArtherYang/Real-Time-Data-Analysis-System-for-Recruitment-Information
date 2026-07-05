@@ -8,7 +8,22 @@
 4. 缺失值处理
 """
 
-# 数据处理管道（逐步实现）
-# from .cleaner import DataCleaner
-# from .normalizer import FieldNormalizer
+# 数据清洗与去重
+from .cleaner import DataCleaner, CleanedRecord
+
+# 字段标准化
+from .normalizer import FieldNormalizer
+
+# 数据处理管道
+from .pipeline import PipelineOrchestrator, PipelineReport
+
+# NLP关键词提取（后续实现）
 # from .extractor import KeywordExtractor
+
+__all__ = [
+    "DataCleaner",
+    "CleanedRecord",
+    "FieldNormalizer",
+    "PipelineOrchestrator",
+    "PipelineReport",
+]
