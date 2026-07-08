@@ -4,7 +4,7 @@
 
   ## china_map_render（地图渲染）
   1. GeoJSON 加载 → echarts.registerMap("china", geoJSON)
-  2. 城市数据获取 → store.fetchCityDist(30)
+  2. 城市数据获取 → store.fetchCityDist(100)
   3. 坐标映射 → CITY_METADATA[cityName] → {lng, lat, icon, province}
   4. ECharts 三层叠加：
      - Layer 0: geo 中国底图（省份边界 + 浅蓝底色）
@@ -86,7 +86,7 @@
           <div class="section-title">🔥 热门岗位 TOP5</div>
           <div v-if="cityTopJobs.length" class="job-list">
             <div v-for="(j, i) in cityTopJobs" :key="i" class="job-row">
-              <span class="job-idx">{{ i + 1 }}</span>
+              <span class="job-idx">{{ ['🥇','🥈','🥉','4','5'][i] }}</span>
               <span class="job-title">{{ j.name }}</span>
               <span class="job-num">{{ j.count }}</span>
             </div>
@@ -166,7 +166,7 @@ async function initMap() {
 
   // Step 2: 拉取城市岗位分布数据
   statusText.value = "正在获取城市数据...";
-  await store.fetchCityDist(30);
+  await store.fetchCityDist(100);
   buildCityData();
 
   loading.value = false;
@@ -304,7 +304,8 @@ const mapOption = computed(() => {
         zlevel: 2,
         rippleEffect: { brushType: "stroke", scale: 2.5, period: 6 },
         symbolSize(val) {
-          return Math.max(8, Math.min(24, 6 + (val[2] / maxCount) * 18));
+          // sqrt 缩放：20条→12px, 100条→20px, 500条→30px, 1000条→36px
+          return Math.max(10, Math.min(38, 8 + Math.sqrt(val[2]) * 0.9));
         },
         data: cities.map(c => ({
           name: c.city,

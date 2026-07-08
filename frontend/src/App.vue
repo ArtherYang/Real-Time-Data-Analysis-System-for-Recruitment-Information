@@ -14,8 +14,7 @@
       <!-- 顶部导航 -->
       <el-header class="app-header">
         <div class="header-left">
-          <el-icon :size="28" color="#409EFF"><DataAnalysis /></el-icon>
-          <span class="header-title">招聘信息实时数据分析系统</span>
+          <Logo :size="36" show-text :text-width="140" />
         </div>
 
         <div class="header-right">
@@ -107,38 +106,38 @@
             active-text-color="#409EFF"
           >
             <el-menu-item index="/">
-              <el-icon><Odometer /></el-icon>
+              <span class="menu-icon">📊</span>
               <span>仪表盘</span>
             </el-menu-item>
             <el-menu-item index="/analysis/salary">
-              <el-icon><TrendCharts /></el-icon>
+              <span class="menu-icon">💰</span>
               <span>薪资分析</span>
             </el-menu-item>
             <el-menu-item index="/analysis/skills">
-              <el-icon><CollectionTag /></el-icon>
+              <span class="menu-icon">💡</span>
               <span>技能需求</span>
             </el-menu-item>
             <el-menu-item index="/analysis/cities">
-              <el-icon><Location /></el-icon>
+              <span class="menu-icon">🗺️</span>
               <span>城市分布</span>
             </el-menu-item>
             <el-menu-item index="/dashboard/fullscreen">
-              <el-icon><Monitor /></el-icon>
+              <span class="menu-icon">🖥️</span>
               <span>数据大屏</span>
             </el-menu-item>
             <el-menu-item index="/jobs">
-              <el-icon><List /></el-icon>
+              <span class="menu-icon">📋</span>
               <span>岗位浏览</span>
             </el-menu-item>
 
             <!-- 管理员专属菜单 -->
             <template v-if="authStore.isAdmin">
               <el-menu-item index="/admin/data-export">
-                <el-icon><Download /></el-icon>
+                <span class="menu-icon">📥</span>
                 <span>数据导出</span>
               </el-menu-item>
               <el-menu-item index="/admin/management">
-                <el-icon><Setting /></el-icon>
+                <span class="menu-icon">⚙️</span>
                 <span>系统管理</span>
               </el-menu-item>
             </template>
@@ -167,6 +166,7 @@ import {
   List,
 } from "@element-plus/icons-vue";
 import { useAuthStore } from "./stores/auth";
+import Logo from "./components/Logo.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -219,13 +219,6 @@ function handleUserCommand(command) {
   gap: 12px;
 }
 
-.header-title {
-  color: #ffffff;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 1px;
-}
-
 .header-right {
   display: flex;
   align-items: center;
@@ -273,6 +266,13 @@ function handleUserCommand(command) {
 
 .app-sidebar .el-menu {
   border-right: none;
+}
+
+.menu-icon {
+  font-size: 18px;
+  margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .app-main {

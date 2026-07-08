@@ -11,8 +11,7 @@
     <div class="login-card">
       <!-- 标题 -->
       <div class="login-header">
-        <el-icon :size="36" color="#409EFF"><DataAnalysis /></el-icon>
-        <h2>招聘信息实时数据分析系统</h2>
+        <Logo :size="48" show-text :text-width="140" />
         <p class="login-subtitle">{{ isRegister ? "创建新账号" : "欢迎回来，请登录" }}</p>
       </div>
 
@@ -107,6 +106,7 @@ import { ref, reactive } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { Message, Lock, Phone, User } from "@element-plus/icons-vue";
 import { useAuthStore } from "../stores/auth";
+import Logo from "../components/Logo.vue";
 
 const router = useRouter();
 const route = useRoute();

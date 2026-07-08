@@ -99,6 +99,41 @@ class TrendingRankingService:
 
         return data
 
+    def get_title_ranking(
+        self, filters: AnalysisFilters, top_n: int = 20
+    ) -> list[dict]:
+        """
+        获取具体岗位名称排行 — 按 title 聚合统计。
+
+        Returns:
+            [{category, count, percentage}, ...] 列表（字段名保持 category 兼容前端）。
+        """
+        top_n = min(max(top_n, 1), 100)
+
+        base_query = filters.apply_to_query(self.db.query(Job))
+        total = base_query.count()
+
+        results = (
+            base_query.with_entities(
+                Job.title,
+                func.count(Job.job_id).label("count"),
+            )
+            .filter(Job.title.isnot(None), Job.title != "")
+            .group_by(Job.title)
+            .order_by(func.count(Job.job_id).desc())
+            .limit(top_n)
+            .all()
+        )
+
+        return [
+            {
+                "category": row[0],
+                "count": row[1],
+                "percentage": round(row[1] / total * 100, 1) if total > 0 else 0,
+            }
+            for row in results
+        ]
+
     def get_hotness_index(
         self, filters: AnalysisFilters, top_n: int = 20
     ) -> list[dict]:

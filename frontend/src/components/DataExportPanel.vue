@@ -1,12 +1,10 @@
 <template>
   <div style="display: flex; gap: 8px">
     <el-button type="primary" size="small" @click="exportCSV">
-      <el-icon><Download /></el-icon>
-      导出 CSV
+      📄 导出 CSV
     </el-button>
     <el-button type="success" size="small" @click="exportExcel">
-      <el-icon><Download /></el-icon>
-      导出 Excel
+      📊 导出 Excel
     </el-button>
   </div>
 </template>

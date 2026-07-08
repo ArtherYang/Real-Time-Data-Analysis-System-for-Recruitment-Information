@@ -1,1 +1,1 @@
-"""RDAS FastAPI Backend — v1.0"""
+"""职言 API Backend — v1.0"""

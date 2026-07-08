@@ -72,12 +72,10 @@
 
     <div class="filter-actions">
       <el-button type="primary" @click="onFilterChange">
-        <el-icon><Refresh /></el-icon>
-        刷新
+        🔄 刷新
       </el-button>
       <el-button @click="onReset">
-        <el-icon><Delete /></el-icon>
-        重置
+        🔁 重置
       </el-button>
     </div>
   </div>

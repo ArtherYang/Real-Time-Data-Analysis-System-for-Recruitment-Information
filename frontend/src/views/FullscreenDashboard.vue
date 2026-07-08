@@ -11,6 +11,7 @@
         <span class="header-decor">▎</span>
       </div>
       <div class="header-center">
+        <Logo :size="32" show-text :text-width="130" />
         <span class="pulse-dot"></span>
         <span class="live-text">系统运行中</span>
       </div>
@@ -27,7 +28,8 @@
         <div class="dark-card">
           <div class="card-title">📊 核心指标</div>
           <div class="stat-rows">
-            <div class="stat-row" v-for="s in stats" :key="s.label">
+            <div class="stat-row" v-for="(s, i) in stats" :key="s.label">
+              <span class="stat-icon">{{ ['📋','🆕','🏙️','💰'][i] }}</span>
               <span class="stat-label">{{ s.label }}</span>
               <span class="stat-value" ref="countEls">{{ s.display }}</span>
             </div>
@@ -36,12 +38,12 @@
 
         <div class="dark-card">
           <div class="card-title">📚 学历要求</div>
-          <v-chart :option="eduPieOption" autoresize style="height:160px" />
+          <v-chart :option="eduPieOption" autoresize style="height:220px" />
         </div>
 
         <div class="dark-card">
           <div class="card-title">🎓 经验要求</div>
-          <v-chart :option="expPieOption" autoresize style="height:160px" />
+          <v-chart :option="expPieOption" autoresize style="height:220px" />
         </div>
       </aside>
 
@@ -61,7 +63,7 @@
           <div class="rank-list">
             <div class="rank-item" v-for="(j, idx) in topJobs" :key="j.name"
               :class="{ 'rank-top3': idx < 3 }">
-              <span class="rank-no">{{ idx + 1 }}</span>
+              <span class="rank-no">{{ ['🥇','🥈','🥉','4','5','6','7','8'][idx] }}</span>
               <span class="rank-name">{{ j.name }}</span>
               <span class="rank-bar">
                 <span class="rank-bar-inner" :style="{ width: (j.count / maxJobCount * 100) + '%' }"></span>
@@ -76,7 +78,7 @@
           <div class="rank-list">
             <div class="rank-item" v-for="(s, idx) in topSkills" :key="s.name"
               :class="{ 'rank-top3': idx < 3 }">
-              <span class="rank-no">{{ idx + 1 }}</span>
+              <span class="rank-no">{{ ['🥇','🥈','🥉','4','5','6','7','8'][idx] }}</span>
               <span class="rank-name">{{ s.name }}</span>
               <span class="rank-bar">
                 <span class="rank-bar-inner skill-bar" :style="{ width: (s.count / maxSkillCount * 100) + '%' }"></span>
@@ -112,6 +114,7 @@ import * as echarts from "echarts/core";
 import VChart from "vue-echarts";
 import { useAnalysisStore } from "../stores/analysis";
 import { CITY_METADATA } from "../assets/cityCoordinates";
+import Logo from "../components/Logo.vue";
 
 use([GeoComponent, ScatterChart, MapChart, EffectScatterChart, PieChart,
   TooltipComponent, LegendComponent, CanvasRenderer]);
@@ -151,7 +154,7 @@ onMounted(async () => {
   await Promise.all([
     store.fetchSummary(),
     store.fetchHotJobs(8),
-    store.fetchCityDist(30),
+    store.fetchCityDist(100),
     store.fetchSkillRanking(8),
     store.fetchSalaryDist("job_category"),
   ]);
@@ -183,30 +186,54 @@ const maxJobCount = computed(() => Math.max(1, ...topJobs.value.map(j => j.count
 const maxSkillCount = computed(() => Math.max(1, ...topSkills.value.map(s => s.count)));
 
 // ---- 学历饼图（暗色主题） ----
-const DARK_PIE_COLORS = ["#409EFF", "#67C23A", "#E6A23C", "#F56C6C", "#9b59b6"];
-const textStyle = { color: "#a8c0e0", fontSize: 11 };
+const DARK_PIE_COLORS = ["#5470c6", "#91cc75", "#fac858", "#ee6666", "#73c0de", "#3ba272"];
+const darkTooltipBg = "rgba(10,20,50,0.95)";
 
-const eduPieOption = computed(() => ({
-  tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
-  legend: { bottom: 0, textStyle },
-  color: DARK_PIE_COLORS,
-  series: [{
-    type: "pie", radius: ["45%", "70%"], center: ["50%", "42%"],
-    label: { color: "#a8c0e0", fontSize: 10, formatter: "{b}\n{d}%" },
-    data: store.experienceEdu.education.map(e => ({ name: e.name, value: e.count })),
-  }],
-}));
+const eduPieOption = computed(() => {
+  const data = store.experienceEdu.education.filter(e => e.count > 0).map(e => ({ name: e.name, value: e.count }));
+  const total = data.reduce((s, i) => s + i.value, 0);
+  return {
+    tooltip: {
+      trigger: "item", backgroundColor: darkTooltipBg, borderColor: "#1e80ff",
+      textStyle: { color: "#e0e8f0" }, padding: [12, 16],
+      formatter: (p) => `<b style="font-size:14px">${p.name}</b><br/>岗位数 <b>${p.value}</b> 个<br/>占比 <b>${p.percent}%</b>`,
+    },
+    color: DARK_PIE_COLORS,
+    series: [{
+      type: "pie", radius: ["50%", "75%"], center: ["50%", "45%"],
+      padAngle: 2, itemStyle: { borderRadius: 5, borderColor: "#0a1628", borderWidth: 2 },
+      label: { show: false },
+      emphasis: { scaleSize: 8, itemStyle: { shadowBlur: 16, shadowColor: "rgba(30,128,255,0.3)" } },
+      data,
+    }],
+    graphic: total > 0 ? [
+      { type: "text", left: "center", top: "35%", style: { text: `${total}`, fontSize: 20, fontWeight: "bold", fill: "#e0f0ff", textAlign: "center" } },
+    ] : [],
+  };
+});
 
-const expPieOption = computed(() => ({
-  tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
-  legend: { bottom: 0, textStyle },
-  color: DARK_PIE_COLORS,
-  series: [{
-    type: "pie", radius: ["45%", "70%"], center: ["50%", "42%"],
-    label: { color: "#a8c0e0", fontSize: 10, formatter: "{b}\n{d}%" },
-    data: store.experienceEdu.experience.map(e => ({ name: e.name, value: e.count })),
-  }],
-}));
+const expPieOption = computed(() => {
+  const data = store.experienceEdu.experience.filter(e => e.count > 0).map(e => ({ name: e.name, value: e.count }));
+  const total = data.reduce((s, i) => s + i.value, 0);
+  return {
+    tooltip: {
+      trigger: "item", backgroundColor: darkTooltipBg, borderColor: "#1e80ff",
+      textStyle: { color: "#e0e8f0" }, padding: [12, 16],
+      formatter: (p) => `<b style="font-size:14px">${p.name}</b><br/>岗位数 <b>${p.value}</b> 个<br/>占比 <b>${p.percent}%</b>`,
+    },
+    color: DARK_PIE_COLORS,
+    series: [{
+      type: "pie", radius: ["50%", "75%"], center: ["50%", "45%"],
+      padAngle: 2, itemStyle: { borderRadius: 5, borderColor: "#0a1628", borderWidth: 2 },
+      label: { show: false },
+      emphasis: { scaleSize: 8, itemStyle: { shadowBlur: 16, shadowColor: "rgba(30,128,255,0.3)" } },
+      data,
+    }],
+    graphic: total > 0 ? [
+      { type: "text", left: "center", top: "35%", style: { text: `${total}`, fontSize: 20, fontWeight: "bold", fill: "#e0f0ff", textAlign: "center" } },
+    ] : [],
+  };
+});
 
 // ---- 中国地图（暗色主题） ----
 const mapOption = computed(() => {
@@ -256,16 +283,16 @@ const mapOption = computed(() => {
           show: true,
           formatter: (p) => {
             const city = cities.find(c => c.city === p.name);
-            return city ? `${city.icon} ${city.name}` : p.name;
+            return city ? city.icon : p.name;
           },
-          position: "right", distance: 6, fontSize: 10, fontWeight: "bold",
-          color: "#a0c0e0",
+          position: "right", distance: 4, fontSize: 8, fontWeight: "bold",
+          color: "#8098b8",
         },
       },
       {
         type: "effectScatter", coordinateSystem: "geo", zlevel: 2,
-        rippleEffect: { brushType: "stroke", scale: 2.5, period: 6 },
-        symbolSize: (val) => Math.max(8, Math.min(24, 6 + (val[2] / maxCount) * 18)),
+        rippleEffect: { brushType: "stroke", scale: 2, period: 7 },
+        symbolSize: (val) => Math.max(5, Math.min(16, 4 + (val[2] / maxCount) * 12)),
         data: cities.map(c => ({
           name: c.city, value: [c.lng, c.lat, c.count],
         })),
@@ -360,7 +387,13 @@ function onMapClick(params) {
 }
 .header-decor { color: #1e80ff; font-size: 20px; opacity: 0.7; }
 
-.header-center { display: flex; align-items: center; gap: 8px; }
+.header-center { display: flex; align-items: center; gap: 10px; }
+.header-brand {
+  font-size: 18px; font-weight: 700; letter-spacing: 3px;
+  background: linear-gradient(90deg, #60a5fa, #38bdf8);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 .pulse-dot {
   width: 10px; height: 10px; border-radius: 50%;
   background: #22c55e;
@@ -408,6 +441,7 @@ function onMapClick(params) {
   padding: 8px 10px; background: rgba(30,128,255,0.08); border-radius: 4px;
   border-left: 3px solid #1e80ff;
 }
+.stat-icon { font-size: 18px; flex-shrink: 0; }
 .stat-label { font-size: 13px; color: #7a9ec0; }
 .stat-value {
   font-size: 22px; font-weight: 700; color: #38bdf8;

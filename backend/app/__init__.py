@@ -1,5 +1,5 @@
 """
-招聘信息实时数据分析系统 - 后端应用
+职言 - 后端应用
 ====================================
 负责数据采集、处理、分析、API服务。
 
@@ -104,7 +104,7 @@ def create_app(config: BaseConfig = None) -> Flask:
     @app.route("/health")
     def health_check():
         """存活探针：验证服务进程是否运行中。"""
-        return jsonify({"status": "ok", "service": "RDAS API", "version": __version__})
+        return jsonify({"status": "ok", "service": "职言 API", "version": __version__})
 
     # ---- 就绪探针 ----
     @app.route("/ready")

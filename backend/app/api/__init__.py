@@ -23,4 +23,4 @@ from . import auth       # noqa: E402, F401 — 用户认证接口
 from . import export     # noqa: E402, F401 — 数据导出接口
 from . import dashboard  # noqa: E402, F401 — 仪表盘接口
 from . import user       # noqa: E402, F401 — 用户资料接口
-from . import resume     # noqa: E402, F401 — 简历接口
+from . import data_refresh  # noqa: E402, F401 — 数据刷新接口（实时采集）

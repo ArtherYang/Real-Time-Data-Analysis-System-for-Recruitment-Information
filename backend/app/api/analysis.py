@@ -46,8 +46,12 @@ def get_hot_jobs():
     try:
         filters = _parse_filters()
         top_n = _int_param("top", 20, hi=100)
+        group_by = request.args.get("group_by", "category").strip()
         engine = AnalysisEngine(session)
-        data = engine.ranking.get_category_ranking(filters, top_n)
+        if group_by == "title":
+            data = engine.ranking.get_title_ranking(filters, top_n)
+        else:
+            data = engine.ranking.get_category_ranking(filters, top_n)
         return success_response(data=data)
     except Exception as e:
         return error_response(message=f"查询失败: {str(e)}", code=500)
@@ -405,5 +409,139 @@ def get_cities_metadata():
         from app.data.city_metadata import get_city_list
         cities = get_city_list()
         return success_response(data={"cities": cities, "total": len(cities)})
+    except Exception as e:
+        return error_response(message=f"查询失败: {str(e)}", code=500)
+
+
+# ============================================================
+# Task 6-B: Redis 缓存加速对比
+# ============================================================
+
+@api_bp.route("/analysis/benchmark", methods=["GET"])
+def get_cache_benchmark():
+    """
+    Redis 缓存加速性能对比 — 对比首次请求（无缓存）和第二次请求（Redis 命中）的耗时。
+
+    Returns:
+        {first_request_ms, second_request_ms, speedup, redis_available}
+    """
+    import time
+    from ..analysis.redis_cache import redis_cache
+
+    session = SessionLocal()
+    try:
+        filters = _parse_filters()
+        params_hash = filters.to_params_hash()
+        engine = AnalysisEngine(session)
+
+        # 清除该键的缓存，确保第一次请求走真实路径
+        redis_cache.invalidate("benchmark")
+
+        # ---- 第一次：无缓存 ----
+        t1 = time.perf_counter()
+        result1 = engine.ranking.get_category_ranking(filters, top_n=10)
+        elapsed1 = round((time.perf_counter() - t1) * 1000, 1)
+
+        # 写入 Redis 缓存
+        redis_cache.set("benchmark", params_hash, {"result": result1}, ttl=300)
+
+        # ---- 第二次：Redis 命中 ----
+        t2 = time.perf_counter()
+        cached = redis_cache.get("benchmark", params_hash)
+        if cached:
+            result2 = cached.get("result", [])
+        else:
+            result2 = engine.ranking.get_category_ranking(filters, top_n=10)
+        elapsed2 = round((time.perf_counter() - t2) * 1000, 1)
+
+        speedup = round(elapsed1 / elapsed2, 1) if elapsed2 > 0 else 0
+
+        return success_response(data={
+            "first_request_ms": elapsed1,
+            "second_request_ms": elapsed2,
+            "speedup": speedup,
+            "cache_layer": "Redis L1 (300s TTL) + DB L2 (3600s TTL)",
+            "redis_available": redis_cache.available,
+            "result_preview": result1[:3],
+        })
+    except Exception as e:
+        return error_response(message=f"性能测试失败: {str(e)}", code=500)
+    finally:
+        session.close()
+
+
+# ============================================================
+# Task 6-C: Celery 异步任务
+# ============================================================
+
+@api_bp.route("/tasks/report", methods=["POST"])
+def submit_async_report():
+    """
+    提交异步分析报告生成任务 — 展示 Celery 异步任务流程。
+
+    POST body: {"city": "北京", "job_category": "技术"}
+    Returns: {"task_id": "...", "status": "pending"}
+    """
+    import uuid
+
+    body = request.get_json(silent=True) or {}
+    city = (body.get("city") or "全部").strip()
+    category = (body.get("job_category") or "全部").strip()
+
+    try:
+        from app.tasks import generate_analysis_report
+
+        # 尝试通过 Celery broker 提交任务
+        task = generate_analysis_report.delay({"city": city, "job_category": category})
+        task_id = task.id
+        broker_mode = True
+    except Exception:
+        # Celery broker 不可用，fallback 模式：后台线程直接执行
+        task_id = f"fallback-{uuid.uuid4().hex[:12]}"
+        import threading
+        from app.tasks import _run_report
+        t = threading.Thread(
+            target=_run_report,
+            args=(task_id, {"city": city, "job_category": category}),
+            daemon=True,
+        )
+        t.start()
+        broker_mode = False
+
+    return success_response(data={
+        "task_id": task_id,
+        "status": "pending",
+        "broker_mode": broker_mode,
+        "message": (
+            f"报告生成任务已提交（{city} · {category}），"
+            f"轮询 GET /api/v1/tasks/{task_id}/status 查看进度"
+        ),
+    })
+
+
+@api_bp.route("/tasks/<task_id>/status", methods=["GET"])
+def get_task_status(task_id: str):
+    """
+    查询异步任务进度（前端轮询此接口）。
+
+    Path: /api/v1/tasks/<task_id>/status
+    Returns: {task_id, status, progress, result, error}
+    """
+    try:
+        from app.tasks import get_task_status as query_status
+
+        status = query_status(task_id)
+
+        if status is None:
+            from app.celery_app import celery_app
+            result = celery_app.AsyncResult(task_id)
+            if result.state == "FAILURE":
+                status = {"task_id": task_id, "status": "failed", "progress": 0,
+                          "result": None, "error": str(result.info) if result.info else "Unknown error"}
+            else:
+                status = {"task_id": task_id, "status": "pending", "progress": 0,
+                          "result": None, "error": None}
+
+        return success_response(data=status)
     except Exception as e:
         return error_response(message=f"查询失败: {str(e)}", code=500)

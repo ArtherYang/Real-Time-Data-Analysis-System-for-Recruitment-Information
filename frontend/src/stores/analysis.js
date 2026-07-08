@@ -154,10 +154,12 @@ export const useAnalysisStore = defineStore("analysis", {
     },
 
     // ---- 岗位热度（/analysis/hot-jobs） ----
-    async fetchHotJobs(limit = 15) {
+    async fetchHotJobs(limit = 15, groupBy = "category") {
       this.loading.hotJobs = true;
       try {
-        const data = await api.get(`/analysis/hot-jobs${this._buildQuery({ top: limit })}`);
+        const data = await api.get(
+          `/analysis/hot-jobs${this._buildQuery({ top: limit, group_by: groupBy })}`
+        );
         // data is [{category, count, percentage}, ...]
         this.hotJobs = (data || []).map((item) => ({
           name: item.category,
@@ -197,7 +199,7 @@ export const useAnalysisStore = defineStore("analysis", {
     },
 
     // ---- 城市分布（/analysis/city-distribution） ----
-    async fetchCityDist(limit = 15) {
+    async fetchCityDist(limit = 50) {
       this.loading.cityDist = true;
       try {
         const data = await api.get(`/analysis/city-distribution${this._buildQuery({ top: limit })}`);
@@ -274,11 +276,10 @@ export const useAnalysisStore = defineStore("analysis", {
       }
     },
 
-    // ---- 一键刷新所有 ----
+    // ---- 一键刷新所有（hotJobs 由各页面自行调用以选择 groupBy） ----
     async refreshAll() {
       await Promise.all([
         this.fetchSummary(),
-        this.fetchHotJobs(),
         this.fetchSalaryDist(),
         this.fetchCityDist(),
         this.fetchSkillRanking(),

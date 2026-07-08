@@ -1,5 +1,5 @@
 """
-RDAS FastAPI 应用入口
+职言 API 应用入口
 =====================
 从 Flask 迁移到 FastAPI — 复用全部 SQLAlchemy 模型和分析引擎，
 仅重写 API 路由层以使用 FastAPI 原生特性（Pydantic、async、自动文档）。
@@ -38,7 +38,7 @@ init_db(config)
 create_tables()
 
 app = FastAPI(
-    title="RDAS — 招聘信息实时数据分析系统",
+    title="职言",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -63,7 +63,7 @@ app.include_router(filters.router, prefix="/api/v1")
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "RDAS FastAPI", "version": "1.0.0"}
+    return {"status": "ok", "service": "职言 API", "version": "1.0.0"}
 
 
 if __name__ == "__main__":

@@ -1,7 +1,13 @@
 <template>
   <div class="dashboard">
-    <!-- 筛选栏 -->
-    <FilterPanel @filter-change="onFilterChange" />
+    <!-- 工具栏：筛选 + 数据操作 -->
+    <div class="toolbar">
+      <FilterPanel @filter-change="onFilterChange" />
+      <div class="toolbar-actions">
+        <LiveCrawlButton @refresh-complete="onRefreshComplete" />
+        <DataImportButton @import-complete="onRefreshComplete" />
+      </div>
+    </div>
 
     <!-- 三列网格 -->
     <div class="dash-grid">
@@ -57,10 +63,19 @@ import SkillWordCloud from "../components/SkillWordCloud.vue";
 import ExperiencePieChart from "../components/ExperiencePieChart.vue";
 import EducationPieChart from "../components/EducationPieChart.vue";
 import ChinaMap from "../components/ChinaMap.vue";
+import LiveCrawlButton from "../components/LiveCrawlButton.vue";
+import DataImportButton from "../components/DataImportButton.vue";
 
 const store = useAnalysisStore();
-onMounted(() => store.refreshAll());
-async function onFilterChange() { await store.refreshAll(); }
+onMounted(async () => {
+  await Promise.all([store.refreshAll(), store.fetchHotJobs(10, 'title')]);
+});
+async function onFilterChange() {
+  await Promise.all([store.refreshAll(), store.fetchHotJobs(10, 'title')]);
+}
+async function onRefreshComplete() {
+  await Promise.all([store.refreshAll(), store.fetchHotJobs(10, 'title')]);
+}
 </script>
 
 <style scoped>
@@ -69,6 +84,21 @@ async function onFilterChange() { await store.refreshAll(); }
   display: flex;
   flex-direction: column;
   padding-bottom: 20px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .dash-grid {

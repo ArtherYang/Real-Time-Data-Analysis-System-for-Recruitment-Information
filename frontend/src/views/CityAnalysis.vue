@@ -49,14 +49,14 @@ onMounted(async () => {
   await Promise.all([
     store.fetchFilterOptions(),
     store.fetchCityMetadata(),
-    store.fetchCityDist(30),
+    store.fetchCityDist(100),
     store.fetchSalaryDist("city"),
   ]);
 });
 
 async function onFilterChange() {
   await Promise.all([
-    store.fetchCityDist(30),
+    store.fetchCityDist(100),
     store.fetchSalaryDist("city"),
   ]);
 }
