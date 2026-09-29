@@ -116,14 +116,13 @@ async function loadJobs() {
     if (filterCategory.value) params.job_category = filterCategory.value;
     if (filterExp.value) params.experience = filterExp.value;
     if (filterEdu.value) params.education = filterEdu.value;
-    const data = await api.get("/jobs", { params });
-    // API returns: { items: [...], total, page, ... } or directly the array
-    if (Array.isArray(data)) {
-      jobs.value = data;
-      total.value = data.length;
-    } else {
-      jobs.value = data.items || data || [];
-      total.value = data.total || jobs.value.length;
+
+    // Raw axios to get pagination (interceptor strips it)
+    const axios = (await import("axios")).default;
+    const res = await axios.get("/api/v1/jobs", { params });
+    if (res.data?.code >= 200 && res.data?.code < 300) {
+      jobs.value = res.data.data || [];
+      total.value = res.data.pagination?.total || jobs.value.length;
     }
   } catch (e) {
     console.error("loadJobs:", e);

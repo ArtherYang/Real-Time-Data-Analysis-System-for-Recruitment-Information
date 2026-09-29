@@ -73,7 +73,7 @@ def get_jobs_overview():
         base = session.query(Job).filter(Job.status == "有效")
         total = base.count()
         week_ago = datetime.utcnow() - timedelta(days=7)
-        new_week = base.filter(Job.crawled_at >= week_ago).count()
+        new_week = base.filter(Job.published_at >= week_ago).count()
 
         sal_q = base.filter(Job.salary_type != "面议",
                             Job.salary_min.isnot(None), Job.salary_max.isnot(None))

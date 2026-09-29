@@ -48,12 +48,10 @@ class Job(Base):
 
     # ==== 要求 ====
     experience = Column(
-        Enum("应届生", "1-3年", "3-5年", "5-10年", "10年以上", "不限", name="experience_enum"),
-        nullable=False, default="不限", comment="经验要求"
+        String(20), nullable=False, default="不限", comment="经验要求"
     )
     education = Column(
-        Enum("不限", "大专", "本科", "硕士", "博士", name="education_enum"),
-        nullable=False, default="不限", comment="学历要求"
+        String(20), nullable=False, default="不限", comment="学历要求"
     )
 
     # ==== 内容 ====

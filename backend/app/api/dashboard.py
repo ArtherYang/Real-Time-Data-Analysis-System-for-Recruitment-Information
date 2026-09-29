@@ -55,8 +55,10 @@ def dashboard_overview():
         )
         total = base.count()
 
-        week_ago = datetime.utcnow() - timedelta(days=7)
-        new_this_week = base.filter(Job.crawled_at >= week_ago).count()
+        # 按数据集中最新发布日期计算"本周新增"（而非系统当前时间）
+        latest_pub = base.with_entities(func.max(Job.published_at)).scalar()
+        week_ago = latest_pub - timedelta(days=7) if latest_pub else datetime.utcnow() - timedelta(days=7)
+        new_this_week = base.filter(Job.published_at >= week_ago).count()
 
         salary_q = base.filter(
             Job.salary_type != "面议",

@@ -1,0 +1,54 @@
+/* ============================================================
+ * 职言 — 深色大屏模式
+ * ============================================================ */
+[data-theme="dark"] {
+  --bg: #080c24;
+  --card-bg: rgba(15,21,53,0.85);
+  --card-border: rgba(0,180,255,0.15);
+  --text: #c0d8f0;
+  --text-dim: #6a80a0;
+  --accent: #00d4ff;
+  --gold: #ffd700;
+  --shadow: rgba(0,180,255,0.1);
+}
+
+[data-theme="dark"] body,
+[data-theme="dark"] .app-main {
+  background: var(--bg) !important;
+}
+[data-theme="dark"] .app-header {
+  background: linear-gradient(135deg, #060a1e, #0a1030) !important;
+  border-bottom: 1px solid rgba(0,180,255,0.15) !important;
+}
+[data-theme="dark"] .app-sidebar {
+  background: #060a18 !important;
+}
+[data-theme="dark"] .app-sidebar .el-menu {
+  background: transparent !important;
+}
+[data-theme="dark"] .chart-card,
+[data-theme="dark"] .summary-card,
+[data-theme="dark"] .filter-panel {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: 0 2px 12px var(--shadow) !important;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+[data-theme="dark"] .chart-card:hover,
+[data-theme="dark"] .summary-card:hover {
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 20px rgba(0,180,255,0.2) !important;
+}
+[data-theme="dark"] .card-title,
+[data-theme="dark"] .card-label,
+[data-theme="dark"] .chart-title {
+  color: var(--text) !important;
+  border-bottom-color: rgba(0,180,255,0.1) !important;
+}
+[data-theme="dark"] .card-value,
+[data-theme="dark"] .stat-value {
+  color: var(--accent) !important;
+}
+[data-theme="dark"] .header-title {
+  color: var(--text) !important;
+}

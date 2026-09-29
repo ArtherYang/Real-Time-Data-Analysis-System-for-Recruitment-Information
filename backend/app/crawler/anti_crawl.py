@@ -285,7 +285,7 @@ class CookiePool:
     管理多个预置 Cookie，在请求时随机轮换，避免单一 Cookie 被限流。
     适用于 BOSS直聘等有较强反爬机制的平台。
 
-    来源：bosszp-master 开源项目，预置了 5 个 BOSS直聘的 __zp_stoken__ cookie。
+    参考 bosszp-master 开源项目的 Cookie 轮换思路。
 
     使用示例:
         pool = CookiePool([
@@ -311,39 +311,28 @@ class CookiePool:
 
     @staticmethod
     def _default_cookies() -> List[Dict[str, str]]:
-        """内置默认 Cookie 池（BOSS直聘 __zp_stoken__ 预置值）。
+        """内置默认 Cookie 池（BOSS直聘 __zp_stoken__ 占位值）。
 
-        这些是公开可用的 BOSS直聘 token，来源于 bosszp-master 开源项目。
-        生产环境建议替换为自己的 token。
+        请替换为自己的真实 token；默认值为占位符，不含任何有效凭证。
 
         Returns:
             List[Dict[str, str]]: 默认 Cookie 列表
         """
         return [
             {
-                "__zp_stoken__": (
-                    "b917c8c2c3484e528ae60693a876783e"
-                ),
+                "__zp_stoken__": "YOUR_ZP_STOKEN_1",
             },
             {
-                "__zp_stoken__": (
-                    "c826d8d3d4595f639bf70794b988894f"
-                ),
+                "__zp_stoken__": "YOUR_ZP_STOKEN_2",
             },
             {
-                "__zp_stoken__": (
-                    "d935e9e4e5606g740cg818a5c0999a50"
-                ),
+                "__zp_stoken__": "YOUR_ZP_STOKEN_3",
             },
             {
-                "__zp_stoken__": (
-                    "e044f0f5f6717h851dh929b6d100ab61"
-                ),
+                "__zp_stoken__": "YOUR_ZP_STOKEN_4",
             },
             {
-                "__zp_stoken__": (
-                    "f155g1g6g7828i962ei030c7e211bc72"
-                ),
+                "__zp_stoken__": "YOUR_ZP_STOKEN_5",
             },
         ]
 

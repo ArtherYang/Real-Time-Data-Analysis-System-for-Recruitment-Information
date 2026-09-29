@@ -1,206 +1,141 @@
 <template>
-  <div class="data-import-button">
-    <button
-      class="import-btn"
-      :class="{ importing: isImporting, done: isDone, error: isError }"
-      :disabled="isImporting"
-      @click="startImport"
-    >
-      <span class="btn-icon">{{ isImporting ? '⏳' : isDone ? '✅' : isError ? '❌' : '📂' }}</span>
-      {{ buttonText }}
-    </button>
+  <div class="import-section">
+    <!-- 隐藏的文件选择器 -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".csv"
+      style="display: none"
+      @change="onFileSelected"
+    />
 
-    <!-- 进度提示 -->
-    <div v-if="isImporting" class="import-progress">
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
-      </div>
-      <div class="progress-text">{{ statusText }}</div>
+    <el-button type="primary" :loading="importing" @click="openFileDialog">
+      📂 {{ importing ? '导入中...' : '导入本地 CSV 数据集' }}
+    </el-button>
+
+    <div v-if="importing" style="margin-top: 8px">
+      <el-progress :percentage="progress" :stroke-width="8" :color="progressColor" />
+      <p style="font-size: 12px; color: #909399; margin-top: 4px">
+        {{ statusMsg }}
+      </p>
     </div>
 
-    <!-- 完成提示 -->
-    <div v-if="showResult" class="result-toast" :class="{ fade: fadeResult }">
-      🎉 {{ resultMessage }}
-    </div>
+    <el-alert
+      v-if="done"
+      :title="alertTitle"
+      :type="alertType"
+      show-icon
+      closable
+      @close="done = false"
+      style="margin-top: 8px"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed } from "vue";
+import axios from "axios";
 
-const emit = defineEmits(['import-complete'])
+const emit = defineEmits(["import-complete"]);
+const fileInput = ref(null);
+const importing = ref(false);
+const progress = ref(0);
+const statusMsg = ref("");
+const done = ref(false);
+const alertTitle = ref("");
+const alertType = ref("success");
+const progressColor = computed(() => (progress.value < 100 ? "#409eff" : "#67c23a"));
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api/v1'
+function openFileDialog() {
+  fileInput.value.click();
+}
 
-const isImporting = ref(false)
-const isDone = ref(false)
-const isError = ref(false)
-const progressPct = ref(0)
-const statusText = ref('')
-const resultMessage = ref('')
-const showResult = ref(false)
-const fadeResult = ref(false)
+async function onFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
 
-let progressTimer = null
-let fadeTimer = null
-
-const buttonText = computed(() => {
-  if (isImporting.value) return '导入中...'
-  if (isDone.value) return '导入完成'
-  if (isError.value) return '导入失败，重试'
-  return '📂 导入公开数据集'
-})
-
-async function startImport() {
-  isImporting.value = true
-  isDone.value = false
-  isError.value = false
-  progressPct.value = 0
-  showResult.value = false
-
-  // 模拟进度（因为导入很快，加个进度动画）
-  statusText.value = '正在读取 大模型岗位信息.csv（5,333 条）...'
-  progressPct.value = 10
-
-  progressTimer = setInterval(() => {
-    if (progressPct.value < 90) {
-      progressPct.value += Math.random() * 20 + 5
-      if (progressPct.value > 30) {
-        statusText.value = '正在解析字段并写入数据库...'
-      }
-      if (progressPct.value > 60) {
-        statusText.value = '正在建立索引...'
-      }
-    }
-  }, 300)
+  importing.value = true;
+  progress.value = 0;
+  done.value = false;
+  statusMsg.value = `正在读取 ${file.name}（${formatSize(file.size)}）...`;
+  progress.value = 10;
 
   try {
-    const resp = await fetch(`${API_BASE}/data/import-csv`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ batch_size: 500 }),
-    })
-    const result = await resp.json()
+    // 1. 用 FileReader 读取 CSV 内容
+    const csvText = await readFileAsText(file);
+    progress.value = 30;
+    statusMsg.value = "正在解析 CSV 字段...";
 
-    clearInterval(progressTimer)
-    progressPct.value = 100
-    isImporting.value = false
+    // 2. 发给后端处理
+    progress.value = 50;
+    statusMsg.value = "正在导入数据库...";
 
-    if (result.code === 200) {
-      isDone.value = true
-      const d = result.data || result
-      resultMessage.value = `导入完成！${d.imported || 0} 条数据，耗时 ${d.time_seconds || '?'} 秒`
-      showResult.value = true
-      emit('import-complete')
+    const res = await axios.post("/api/v1/data/import-csv", {
+      csv_content: csvText,
+      file_name: file.name,
+    });
+
+    if (res.data && res.data.code === 202) {
+      const taskId = res.data.data.task_id;
+      // 3. 轮询进度
+      const poll = setInterval(async () => {
+        try {
+          const { data: progressData } = await axios.get(
+            `/api/v1/data/import-csv/${taskId}/progress`
+          );
+          const d = progressData.data;
+          progress.value = Math.min(d.progress || progress.value + 5, 99);
+          statusMsg.value = d.status || "正在处理...";
+
+          if (d.state === "SUCCESS") {
+            clearInterval(poll);
+            progress.value = 100;
+            importing.value = false;
+            done.value = true;
+            alertTitle.value = `导入完成！${d.result?.imported || d.collected_so_far || 0} 条数据，耗时 ${d.result?.time_seconds || "?"} 秒`;
+            alertType.value = "success";
+            statusMsg.value = "";
+            emit("import-complete");
+            // 重置 input 让同一个文件可再次选择
+            fileInput.value.value = "";
+          } else if (d.state === "FAILURE" || d.state?.includes("失败")) {
+            clearInterval(poll);
+            importing.value = false;
+            done.value = true;
+            alertTitle.value = "导入失败: " + (d.error || "未知错误");
+            alertType.value = "error";
+          }
+        } catch {
+          clearInterval(poll);
+          importing.value = false;
+          done.value = true;
+          alertTitle.value = "进度查询失败";
+          alertType.value = "error";
+        }
+      }, 1000);
     } else {
-      isError.value = true
-      resultMessage.value = '导入失败：' + (result.message || '未知错误')
-      showResult.value = true
+      throw new Error("后端返回异常");
     }
-
-    fadeTimer = setTimeout(() => { fadeResult.value = true }, 4000)
-    setTimeout(() => { showResult.value = false; isDone.value = false; isError.value = false }, 5000)
-  } catch (e) {
-    clearInterval(progressTimer)
-    isImporting.value = false
-    isError.value = true
-    resultMessage.value = '请求失败: ' + e.message
-    showResult.value = true
-    fadeTimer = setTimeout(() => { fadeResult.value = true }, 4000)
+  } catch (err) {
+    importing.value = false;
+    done.value = true;
+    alertTitle.value = "导入失败: " + (err.message || "请检查文件格式");
+    alertType.value = "error";
   }
 }
 
-onBeforeUnmount(() => {
-  clearInterval(progressTimer)
-  clearTimeout(fadeTimer)
-})
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(new Error("文件读取失败"));
+    reader.readAsText(file, "UTF-8");
+  });
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1048576).toFixed(1) + " MB";
+}
 </script>
-
-<style scoped>
-.data-import-button {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.import-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 22px;
-  border: 2px solid #10b981;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
-}
-
-.import-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
-}
-
-.import-btn.importing {
-  background: linear-gradient(135deg, #f59e0b, #f97316);
-  border-color: #f59e0b;
-  cursor: wait;
-}
-
-.import-btn.done {
-  background: linear-gradient(135deg, #10b981, #34d399);
-  border-color: #10b981;
-}
-
-.import-btn.error {
-  background: linear-gradient(135deg, #ef4444, #f87171);
-  border-color: #ef4444;
-}
-
-.btn-icon {
-  font-size: 18px;
-}
-
-.import-progress {
-  width: 300px;
-}
-
-.progress-bar {
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #059669);
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.result-toast {
-  padding: 10px 16px;
-  background: #ecfdf5;
-  border: 1px solid #10b981;
-  border-radius: 8px;
-  color: #065f46;
-  font-size: 14px;
-  font-weight: 500;
-  transition: opacity 1s ease;
-}
-
-.result-toast.fade {
-  opacity: 0;
-}
-</style>

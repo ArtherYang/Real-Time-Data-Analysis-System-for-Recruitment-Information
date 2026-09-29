@@ -193,9 +193,10 @@ def get_jobs_overview():
         )
         total = base_query.count()
 
-        # 本周新增
-        week_ago = datetime.utcnow() - timedelta(days=7)
-        this_week_new = base_query.filter(Job.crawled_at >= week_ago).count()
+        # 本周新增：按数据集中最新发布日期计算
+        latest_pub = base_query.with_entities(func.max(Job.published_at)).scalar()
+        week_ago = latest_pub - timedelta(days=7) if latest_pub else datetime.utcnow() - timedelta(days=7)
+        this_week_new = base_query.filter(Job.published_at >= week_ago).count()
 
         # 平均薪资（不含面议）
         salary_query = base_query.filter(

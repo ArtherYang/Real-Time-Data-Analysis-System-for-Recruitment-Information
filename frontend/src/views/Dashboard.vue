@@ -1,11 +1,24 @@
 <template>
   <div class="dashboard">
+    <!-- 顶部操作栏 -->
+    <div class="dash-top">
+      <div class="top-left">
+        <span class="live-clock">🕐 {{ timeStr }}</span>
+        <span class="live-dot"></span>
+        <span class="live-label">实时</span>
+      </div>
+      <div class="top-right">
+        <el-button size="small" @click="toggleDark" circle>
+          {{ isDark ? '☀️' : '🌙' }}
+        </el-button>
+      </div>
+    </div>
+
     <!-- 工具栏：筛选 + 数据操作 -->
     <div class="toolbar">
       <FilterPanel @filter-change="onFilterChange" />
       <div class="toolbar-actions">
-        <LiveCrawlButton @refresh-complete="onRefreshComplete" />
-        <DataImportButton @import-complete="onRefreshComplete" />
+        <ToolBar @data-changed="onRefreshComplete" />
       </div>
     </div>
 
@@ -15,7 +28,7 @@
       <aside class="dash-col dash-left">
         <SummaryCards />
         <div class="chart-card left-trend">
-          <div class="card-title">📈 薪资趋势</div>
+          <div class="card-title">📈 岗位需求趋势</div>
           <div class="card-body"><SalaryTrendChart /></div>
         </div>
       </aside>
@@ -53,7 +66,7 @@
 </template>
 
 <script setup>
-import { onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useAnalysisStore } from "../stores/analysis";
 import FilterPanel from "../components/FilterPanel.vue";
 import SummaryCards from "../components/SummaryCards.vue";
@@ -63,13 +76,27 @@ import SkillWordCloud from "../components/SkillWordCloud.vue";
 import ExperiencePieChart from "../components/ExperiencePieChart.vue";
 import EducationPieChart from "../components/EducationPieChart.vue";
 import ChinaMap from "../components/ChinaMap.vue";
-import LiveCrawlButton from "../components/LiveCrawlButton.vue";
-import DataImportButton from "../components/DataImportButton.vue";
+import ToolBar from "../components/ToolBar.vue";
 
 const store = useAnalysisStore();
+
+// Dark mode toggle
+const isDark = ref(false);
+function toggleDark() {
+  isDark.value = !isDark.value;
+  document.documentElement.setAttribute("data-theme", isDark.value ? "dark" : "");
+}
+
+// Live clock
+const timeStr = ref("");
+let clockTimer = null;
+function tick() { timeStr.value = new Date().toLocaleTimeString("zh-CN", { hour12: false }); }
+
 onMounted(async () => {
+  tick(); clockTimer = setInterval(tick, 1000);
   await Promise.all([store.refreshAll(), store.fetchHotJobs(10, 'title')]);
 });
+onUnmounted(() => { clearInterval(clockTimer); });
 async function onFilterChange() {
   await Promise.all([store.refreshAll(), store.fetchHotJobs(10, 'title')]);
 }
@@ -85,6 +112,20 @@ async function onRefreshComplete() {
   flex-direction: column;
   padding-bottom: 20px;
 }
+
+.dash-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0; margin-bottom: 8px;
+}
+.top-left { display: flex; align-items: center; gap: 8px; }
+.live-clock { font-family: "Courier New",monospace; font-size: 15px; color: #303133; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.live-label { font-size: 12px; color: #22c55e; font-weight: 600; letter-spacing: 1px; }
+.top-right { display: flex; gap: 6px; }
+
+.toolbar { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.toolbar-actions { display: flex; gap: 8px; flex-shrink: 0; padding-top: 4px; }
 
 .toolbar {
   display: flex;

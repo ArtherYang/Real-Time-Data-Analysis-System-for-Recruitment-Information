@@ -314,9 +314,8 @@ def seed_jobs(count: int = 500):
 
     session = db_module.SessionLocal()
     try:
-        # 先清空旧数据
-        deleted = session.query(Job).delete()
-        print(f"  清空旧数据 {deleted} 条")
+        # 追加模式：不清空旧数据
+        print(f"  追加模式（保留现有数据）")
 
         session.add_all(jobs)
         session.commit()
