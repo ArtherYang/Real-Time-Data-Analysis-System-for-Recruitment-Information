@@ -1,13 +1,11 @@
 # ============================================================
-# 招聘信息实时数据分析系统 (RDAS) — CI/CD 主流水线
+# 招聘信息实时数据分析系统 (RDAS) — CI 测试流水线
 # ============================================================
-# 触发条件：push/PR 到 main 或 develop 分支
-# 流程：test → build → deploy-test / deploy-prod
-#
-# AI生成，待人工审查。
+# 触发条件：push / PR 到 main 或 develop 分支
+# 流程：后端 pytest 测试 + 前端构建验证
 # ============================================================
 
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
@@ -16,52 +14,47 @@ on:
     branches: [main, develop]
   workflow_dispatch:  # 允许手动触发
 
-env:
-  REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/rdas-backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/rdas-frontend
-
 jobs:
 
   # ============================================================
-  # Job 1: 测试
+  # 后端测试
   # ============================================================
-  test:
-    name: Test
+  test-backend:
+    name: Test (backend)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        module:
-          - backend
-          - frontend
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---- 后端测试 ----
       - name: Set up Python
-        if: matrix.module == 'backend'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install Python dependencies
-        if: matrix.module == 'backend'
         working-directory: backend
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run backend tests
-        if: matrix.module == 'backend'
         working-directory: backend
         run: |
           python -m pytest tests/ -v --tb=short --timeout=30
 
-      # ---- 前端构建验证 ----
+  # ============================================================
+  # 前端构建验证
+  # ============================================================
+  test-frontend:
+    name: Test (frontend)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Set up Node.js
-        if: matrix.module == 'frontend'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -69,159 +62,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install & build frontend
-        if: matrix.module == 'frontend'
         working-directory: frontend
         run: |
           npm ci --registry=https://registry.npmmirror.com
           npm run build
-
-  # ============================================================
-  # Job 2: 构建 Docker 镜像
-  # ============================================================
-  build:
-    name: Build & Push Images
-    needs: test
-    runs-on: ubuntu-latest
-    # 仅 push 到 main/develop 时构建，PR 不构建
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Docker 镜像元数据标签
-      - name: Docker metadata (Backend)
-        id: meta_backend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.BACKEND_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Docker metadata (Frontend)
-        id: meta_frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.FRONTEND_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      # 构建并推送后端镜像
-      - name: Build & push backend
-        uses: docker/build-push-action@v5
-        with:
-          context: backend
-          push: true
-          tags: ${{ steps.meta_backend.outputs.tags }}
-          labels: ${{ steps.meta_backend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # 构建并推送前端镜像
-      - name: Build & push frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: frontend
-          push: true
-          tags: ${{ steps.meta_frontend.outputs.tags }}
-          labels: ${{ steps.meta_frontend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ============================================================
-  # Job 3: 部署到测试环境 (develop 分支)
-  # ============================================================
-  deploy-test:
-    name: Deploy to Test
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    environment:
-      name: testing
-      url: https://test-rdas.example.com
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.TEST_HOST }}
-          username: ${{ secrets.TEST_USER }}
-          key: ${{ secrets.TEST_SSH_KEY }}
-          script: |
-            cd /opt/rdas-test
-            docker-compose pull
-            docker-compose up -d --force-recreate
-            docker image prune -f
-
-      - name: Health check
-        run: |
-          sleep 15
-          curl -f --retry 5 --retry-delay 10 ${{ steps.deploy.outputs.url }}/health || exit 1
-
-  # ============================================================
-  # Job 4: 部署到生产环境 (main 分支，需手动审批)
-  # ============================================================
-  deploy-prod:
-    name: Deploy to Production
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: production
-      url: https://rdas.example.com
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            cd /opt/rdas
-            # 备份当前运行版本
-            docker-compose ps > /opt/rdas/backups/pre_deploy_$(date +%Y%m%d_%H%M%S).txt
-            # 拉取新镜像
-            docker-compose pull
-            # 滚动更新
-            docker-compose up -d --remove-orphans
-            # 清理旧镜像
-            docker image prune -f
-
-      - name: Health check
-        run: |
-          sleep 20
-          curl -f --retry 10 --retry-delay 15 ${{ secrets.PROD_URL }}/health || exit 1
-
-      - name: Notify deployment success
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { repo, owner } = context.repo;
-            const run_id = context.runId;
-            await github.rest.issues.createComment({
-              owner, repo,
-              issue_number: context.issue.number,
-              body: `✅ 生产环境部署成功！\n- Workflow: [${context.workflow}](https://github.com/${owner}/${repo}/actions/runs/${run_id})\n- 环境: production\n- 提交: ${context.sha}`
-            });
